@@ -7,8 +7,19 @@
 
 #define GRID_COLUMNS 24
 #define GRID_ROWS GRID_COLUMNS
-#define GRID_SIZE ((GRID_COLUMNS) * (GRID_ROWS))
-#define SQUARE_SIZE 30
+#define GRID_TILE_COUNT ((GRID_COLUMNS) * (GRID_ROWS))
+
+#define SQUARE_PIXEL_MARGIN 5
+#define SQUARE_PIXEL_SIZE 30
+
+#define COORD_TO_PIXEL(c) ((c) * ((SQUARE_PIXEL_SIZE) + (SQUARE_PIXEL_MARGIN)) + SQUARE_PIXEL_MARGIN)
+
+#define GRID_PIXEL_WIDTH (COORD_TO_PIXEL(GRID_COLUMNS))
+#define GRID_PIXEL_HEIGHT (COORD_TO_PIXEL(GRID_ROWS))
+// #define GRID_PIXEL_WIDTH ((GRID_COLUMNS) * ((SQUARE_PIXEL_SIZE) + (SQUARE_PIXEL_MARGIN)) + SQUARE_PIXEL_MARGIN)
+// #define GRID_PIXEL_HEIGHT ((GRID_ROWS) * ((SQUARE_PIXEL_SIZE) + (SQUARE_PIXEL_MARGIN)) + SQUARE_PIXEL_MARGIN)
+
+
 #define PLAYER_STARTING_LENGTH 2
 
 typedef enum {
@@ -32,7 +43,7 @@ typedef struct {
 } IntVector;
 
 typedef struct {
-    IntVector positions[GRID_SIZE + 2];
+    IntVector positions[GRID_TILE_COUNT + 2];
     int length;
     DIRECTION direction;
 } Player;
@@ -182,7 +193,7 @@ void update_game(GameState *game_state, int grid_x_pos, int grid_y_pos) {
 
     if(vec_equals(game_state->player.positions[0], game_state->apple_position)) {
         ++game_state->player.length;
-        if(game_state->player.length == GRID_SIZE) {
+        if(game_state->player.length == GRID_TILE_COUNT) {
             end_game(game_state, WIN);
             return;
         }
@@ -200,25 +211,25 @@ void update_game(GameState *game_state, int grid_x_pos, int grid_y_pos) {
         }
     }
 
-    int apple_x_pos = grid_x_pos + game_state->apple_position.x * SQUARE_SIZE;
-    int apple_y_pos = grid_y_pos + game_state->apple_position.y * SQUARE_SIZE;
-    DrawRectangle(apple_x_pos, apple_y_pos, SQUARE_SIZE, SQUARE_SIZE, GREEN);
+    int apple_x_pos = grid_x_pos + COORD_TO_PIXEL(game_state->apple_position.x);
+    int apple_y_pos = grid_y_pos + COORD_TO_PIXEL(game_state->apple_position.y);
+    DrawRectangle(apple_x_pos, apple_y_pos, SQUARE_PIXEL_SIZE, SQUARE_PIXEL_SIZE, GREEN);
 
     for(int i = 0; i < game_state->player.length; ++i) {
-        int segment_screen_x = grid_x_pos + game_state->player.positions[i].x * SQUARE_SIZE;
-        int segment_screen_y = grid_y_pos + game_state->player.positions[i].y * SQUARE_SIZE;
+        int segment_screen_x = grid_x_pos + COORD_TO_PIXEL(game_state->player.positions[i].x);
+        int segment_screen_y = grid_y_pos + COORD_TO_PIXEL(game_state->player.positions[i].y);
         Vector2 segment_pos = { segment_screen_x, segment_screen_y };
         Vector2 final_pos = segment_pos;
         if(game_state->player.direction != STATIONARY) {
-            int prev_segment_screen_x = grid_x_pos + game_state->player.positions[i + 1].x * SQUARE_SIZE;
-            int prev_segment_screen_y = grid_y_pos + game_state->player.positions[i + 1].y * SQUARE_SIZE;
+            int prev_segment_screen_x = grid_x_pos + COORD_TO_PIXEL(game_state->player.positions[i + 1].x);
+            int prev_segment_screen_y = grid_y_pos + COORD_TO_PIXEL(game_state->player.positions[i + 1].y);
             Vector2 prev_segment_pos = { prev_segment_screen_x, prev_segment_screen_y };
 
             Vector2 diff = Vector2Subtract(segment_pos, prev_segment_pos);
             Vector2 scaled_diff = Vector2Scale(diff, game_state->time_since_last_update / update_time);
             final_pos = Vector2Add(prev_segment_pos, scaled_diff);
         }
-        DrawRectangleV(final_pos, (Vector2){SQUARE_SIZE, SQUARE_SIZE}, RED);
+        DrawRectangleV(final_pos, (Vector2){SQUARE_PIXEL_SIZE, SQUARE_PIXEL_SIZE}, RED);
     }
 
     int buf_size = 16;
@@ -250,7 +261,7 @@ void end_screen(GameState *game_state, char *message) {
 int main(void) {
     InitWindow(0, 0, "Snake");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
-    SetWindowMinSize(GRID_COLUMNS * SQUARE_SIZE, GRID_ROWS * SQUARE_SIZE);
+    SetWindowMinSize(GRID_PIXEL_WIDTH, GRID_PIXEL_HEIGHT);
     SetTargetFPS(60);
 
     GameState game_state = {};
@@ -260,11 +271,16 @@ int main(void) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
-        int grid_width = GRID_COLUMNS * SQUARE_SIZE;
-        int grid_height = GRID_ROWS * SQUARE_SIZE;
-        int grid_x_pos = GetScreenWidth() / 2 - grid_width / 2;
-        int grid_y_pos = GetScreenHeight() / 2 - grid_height / 2;
-        DrawRectangle(grid_x_pos, grid_y_pos, grid_width, grid_height, GRAY);
+        int grid_x_pos = GetScreenWidth() / 2 - GRID_PIXEL_WIDTH / 2;
+        int grid_y_pos = GetScreenHeight() / 2 - GRID_PIXEL_HEIGHT / 2;
+        DrawRectangle(grid_x_pos, grid_y_pos, GRID_PIXEL_WIDTH, GRID_PIXEL_HEIGHT, LIGHTGRAY);
+        for(int i = 0; i < GRID_ROWS; ++i) {
+            for(int u = 0; u < GRID_COLUMNS; ++u) {
+                DrawRectangle(grid_x_pos + i*SQUARE_PIXEL_SIZE + (1+i)*SQUARE_PIXEL_MARGIN,
+                              grid_y_pos + u*SQUARE_PIXEL_SIZE + (1+u)*SQUARE_PIXEL_MARGIN,
+                              SQUARE_PIXEL_SIZE, SQUARE_PIXEL_SIZE, GRAY);
+            }
+        }
 
         switch(game_state.result) {
             case NEW_GAME:
